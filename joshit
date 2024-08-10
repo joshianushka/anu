@@ -1,0 +1,121 @@
+-- Connect to MySQL and create a database
+CREATE DATABASE celestial_bodies;
+
+-- Use the newly created database
+USE celestial_bodies;
+
+-- Create the CelestialBody table
+CREATE TABLE CelestialBody (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    type ENUM('star', 'planet', 'moon', 'asteroid', 'comet') NOT NULL,
+    size DECIMAL(10, 2),
+    distance_from_earth DECIMAL(15, 2),
+    discovery_date DATE
+);
+
+-- Create tables for specific celestial body types
+CREATE TABLE Star (
+    id INT PRIMARY KEY,
+    spectral_type VARCHAR(50),
+    luminosity DECIMAL(10, 2),
+    temperature DECIMAL(10, 2),
+    FOREIGN KEY (id) REFERENCES CelestialBody(id)
+);
+
+CREATE TABLE Planet (
+    id INT PRIMARY KEY,
+    orbital_period DECIMAL(10, 2),
+    radius DECIMAL(10, 2),
+    mass DECIMAL(10, 2),
+    FOREIGN KEY (id) REFERENCES CelestialBody(id)
+);
+
+CREATE TABLE Moon (
+    id INT PRIMARY KEY,
+    orbital_period DECIMAL(10, 2),
+    radius DECIMAL(10, 2),
+    mass DECIMAL(10, 2),
+    FOREIGN KEY (id) REFERENCES CelestialBody(id)
+);
+
+CREATE TABLE Asteroid (
+    id INT PRIMARY KEY,
+    composition VARCHAR(255),
+    orbit_type VARCHAR(50),
+    FOREIGN KEY (id) REFERENCES CelestialBody(id)
+);
+
+CREATE TABLE Comet (
+    id INT PRIMARY KEY,
+    tail_length DECIMAL(10, 2),
+    composition VARCHAR(255),
+    FOREIGN KEY (id) REFERENCES CelestialBody(id)
+);
+// server.js
+const express = require('express');
+const mysql = require('mysql2');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+
+const app = express();
+const port = 3000;
+
+// Configure middleware
+app.use(bodyParser.json());
+app.use(cors());
+
+// Create a connection to the database
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: 'password',  // Replace with your MySQL root password
+    database: 'celestial_bodies'
+});
+
+// Connect to the database
+db.connect(err => {
+    if (err) {
+        console.error('Database connection error:', err);
+        return;
+    }
+    console.log('Connected to the database.');
+});
+
+// Define API routes
+
+// Get all celestial bodies
+app.get('/api/celestial-bodies', (req, res) => {
+    db.query('SELECT * FROM CelestialBody', (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(results);
+    });
+});
+
+// Get celestial body by ID
+app.get('/api/celestial-bodies/:id', (req, res) => {
+    const { id } = req.params;
+    db.query('SELECT * FROM CelestialBody WHERE id = ?', [id], (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (results.length === 0) return res.status(404).json({ error: 'Not found' });
+        res.json(results[0]);
+    });
+});
+
+// Add a new celestial body
+app.post('/api/celestial-bodies', (req, res) => {
+    const { name, type, size, distance_from_earth, discovery_date } = req.body;
+    db.query(
+        'INSERT INTO CelestialBody (name, type, size, distance_from_earth, discovery_date) VALUES (?, ?, ?, ?, ?)',
+        [name, type, size, distance_from_earth, discovery_date],
+        (err, results) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.status(201).json({ id: results.insertId });
+        }
+    );
+});
+
+// Start the server
+app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+});
